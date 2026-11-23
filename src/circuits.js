@@ -30,18 +30,56 @@ export const pinGroups = [
   ['AREF', 'ADC voltage reference', 'Only use an external reference with the appropriate analogReference() configuration.'],
 ];
 
+export function connectionSignals(id, output, state) {
+  const active = state.running;
+  const pin = value => active ? value : 'Not sampled';
+  const led = active && output.led > 0 ? 'HIGH · LED on' : 'LOW · LED off';
+  const pwm = active ? `PWM ${output.pwm}/255` : 'PWM off';
+  const ground = 'Common GND reference';
+  const supply = active ? 'Powered (ideal model)' : 'Power off';
+  const echo = !active ? 'Not sampled' : state.noEcho ? 'UNKNOWN · no echo' : `${output.echo} µs · ${output.measuredDistance.toFixed(1)} cm`;
+  switch (id) {
+    case 'board': return [supply, led];
+    case 'blink': return [led, active && output.led ? 'LED conducting (model)' : 'LED off'];
+    case 'button': return [pin(`${output.digital} · ${state.pressed ? 'pressed' : 'released'}`), led];
+    case 'dimmer': return [supply, pin(`ADC ${output.analog}/1023`), pwm];
+    case 'servo': return [active ? `Command ${state.angle}° · shaft ${Math.round(output.angle)}°` : `Signal off · last shaft ${Math.round(output.angle)}°`, active ? 'External power (ideal model)' : 'Drive off', ground];
+    case 'light': return [supply, pin(`ADC ${output.light}/1023`), led];
+    case 'rgb': return [0, 1, 2].map(channel => active ? `PWM ${output.rgb[channel]}/255` : 'PWM off').concat(ground);
+    case 'distance': return [supply, active ? '10 µs trigger pulses' : 'Trigger inactive', echo];
+    case 'buzzer': return [output.frequency ? `${output.frequency} Hz square wave` : 'Tone off', ground];
+    case 'piano': return [pin(state.note < 0 ? 'All HIGH · released' : `D${state.note + 2} LOW · selected`), output.frequency ? `${output.frequency} Hz` : 'Tone off'];
+    case 'motor': return [active ? `PWM ${output.motorPwm}/255` : 'PWM off', active ? `${state.motorSpeed}% relative drive` : 'Motor off', active && output.motorPwm ? 'Driver switching (model)' : 'Driver off', ground];
+    case 'temperature': return [supply, pin(`ADC ${output.temperatureReading} · ${output.celsius.toFixed(1)}°C`)];
+    case 'stepper': return [active ? `Command ${state.steps} · step ${Math.round(output.steps)}` : `Drive off · last step ${Math.round(output.steps)}`, active ? 'External power (ideal model)' : 'Drive off', `${(output.steps * 360 / 2048).toFixed(1)}° commanded position`];
+    case 'soil': return [supply, pin(`ADC ${output.soilReading} · ${output.moisture}%`), led];
+    case 'force': return [supply, pin(`ADC ${output.forceReading}/1023`), pwm];
+    case 'parking': {
+      const valid = active && !state.noEcho;
+      return [
+        supply, echo,
+        valid ? `R ${output.zone === 'STOP' ? 'HIGH' : 'LOW'} · A ${output.zone === 'CAUTION' ? 'HIGH' : 'LOW'} · G ${output.zone === 'CLEAR' ? 'HIGH' : 'LOW'}` : 'R LOW · A LOW · G LOW',
+        valid ? `${output.zone} indicator on` : 'All LEDs off',
+        output.frequency ? `${output.frequency} Hz warning` : 'Tone off',
+      ];
+    }
+    default: throw new Error(`Missing connection signals for lesson: ${id}`);
+  }
+}
+
 export function diagramMarkup(id, compact = false) {
   const rows = connections[id];
-  const height = rows.length * (compact ? 115 : 70) + 70;
+  const height = rows.length * (compact ? 135 : 80) + 70;
   return `<svg viewBox="0 0 ${compact ? 320 : 640} ${height}" role="img" aria-label="Interactive wiring diagram. Select a component connection to inspect it.">
     <defs><marker id="wire-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5b8c78"/></marker></defs>
     <text x="24" y="25" class="diagram-title">${compact ? 'PIN / SUPPLY → COMPONENT' : 'PIN / SUPPLY'}</text>${compact ? '' : '<text x="355" y="25" class="diagram-title">COMPONENT CONNECTION</text>'}
     ${rows.map(([from, to, part], index) => {
-      const y = index * (compact ? 115 : 70) + 45;
+      const y = index * (compact ? 135 : 80) + 45;
       return `<g data-part="${part}" class="diagram-connection" role="button" tabindex="0" aria-label="Inspect connection: ${from} to ${to}">
-        <rect x="20" y="${y}" width="${compact ? 280 : 246}" height="44" rx="8"/><rect x="${compact ? 20 : 352}" y="${compact ? y + 58 : y}" width="${compact ? 280 : 266}" height="44" rx="8"/>
-        <path d="${compact ? `M160 ${y + 44}v12` : `M266 ${y + 22}h83`}" class="diagram-wire" marker-end="url(#wire-arrow)"/>
-        <text x="32" y="${y + 27}">${from}</text><text x="${compact ? 32 : 364}" y="${compact ? y + 85 : y + 27}">${to}</text>
+        <rect x="20" y="${y}" width="${compact ? 280 : 246}" height="54" rx="8"/><rect x="${compact ? 20 : 352}" y="${compact ? y + 68 : y}" width="${compact ? 280 : 266}" height="54" rx="8"/>
+        <path d="${compact ? `M160 ${y + 54}v12` : `M266 ${y + 27}h83`}" class="diagram-wire" marker-end="url(#wire-arrow)"/>
+        <text x="32" y="${y + 23}">${from}</text><text x="32" y="${y + 43}" class="connection-signal" data-signal="${index}"></text>
+        <text x="${compact ? 32 : 364}" y="${compact ? y + 100 : y + 32}">${to}</text>
       </g>`;
     }).join('')}</svg>`;
 }

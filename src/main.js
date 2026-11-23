@@ -1,7 +1,7 @@
 import './style.css';
 import { lessons, components, simulate } from './lessons.js';
 import { createLab } from './scene.js';
-import { connections, pinGroups, diagramMarkup } from './circuits.js';
+import { connections, pinGroups, diagramMarkup, connectionSignals } from './circuits.js';
 
 const icons = {
   chip: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4"/><path d="M10 10h4v4h-4z"/>',
@@ -59,6 +59,7 @@ let lastTrace = '';
 let lastTraceTime = 0;
 let diagramEnabled = false;
 let compactDiagram = innerWidth <= 700;
+let focusRequested = false;
 
 document.querySelector('#app').innerHTML = `
   <a class="skip-link" href="#lesson-title">Skip to lesson</a>
@@ -75,7 +76,7 @@ document.querySelector('#app').innerHTML = `
     </div>
   </aside>
   <div class="workspace">
-    <header class="topbar"><div><span class="eyebrow">LEARN BY MAKING</span><span class="topbar-divider">/</span><span id="breadcrumb">Your first circuit</span></div><div class="lab-settings"><button id="sound-toggle" aria-pressed="false">Sound off</button><button id="motion-toggle" aria-pressed="${reducedMotion}">Reduced motion</button></div></header>
+    <header class="topbar"><div><span class="eyebrow">LEARN BY MAKING</span><span class="topbar-divider">/</span><span id="breadcrumb">Your first circuit</span></div><div class="lab-settings"><button id="focus-toggle" aria-pressed="false">Focus workbench</button><button id="sound-toggle" aria-pressed="false">Sound off</button><button id="motion-toggle" aria-pressed="${reducedMotion}">Reduced motion</button></div></header>
     <main>
       <div class="lesson-heading"><div><div class="lesson-meta"><span id="lesson-category"></span><span class="meta-dot">·</span><span id="lesson-duration"></span></div><h1 id="lesson-title" tabindex="-1"></h1><p id="lesson-subtitle"></p></div><span class="lesson-counter" id="lesson-counter"></span></div>
       <nav class="lesson-pagination" aria-label="Lesson navigation"><a id="previous-lesson">Previous lesson</a><span id="lesson-position"></span><a id="next-lesson">Next lesson</a></nav>
@@ -86,7 +87,7 @@ document.querySelector('#app').innerHTML = `
           <div id="schematic" hidden><div id="schematic-drawing"></div><p id="schematic-live"></p><p class="diagram-note">Connection map, not a physical placement guide. Select a connection to inspect its component.</p></div>
           <div id="scene-error" role="alert" hidden></div>
           <div class="component-popover" id="component-popover"><span class="eyebrow">EXPLORE A COMPONENT</span><strong id="component-name"></strong><p id="component-description"></p></div>
-          <div class="scene-footer"><span class="gesture-hint">Drag to orbit · Focus view: WASD pan, Q/E rotate, +/− zoom</span><div class="view-tools" role="group" aria-label="3D view controls"><button id="rotate-left" aria-label="Rotate view left">↶</button><button id="rotate-right" aria-label="Rotate view right">↷</button><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">+</button><button id="reset-view" aria-label="Reset view">${icon('reset')}</button></div></div>
+          <div class="scene-footer"><span class="gesture-hint">Drag to pan · Right-drag or Q/E to rotate · Pinch/scroll to zoom · Focus view: WASD pan, 0 reset</span><div class="view-tools" role="group" aria-label="3D view controls"><button id="rotate-left" aria-label="Rotate view left">↶</button><button id="rotate-right" aria-label="Rotate view right">↷</button><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">+</button><button id="reset-view" aria-label="Reset view">${icon('reset')}</button></div></div>
           <div class="scene-caption"><span class="caption-dot"></span><span>Original, simplified geometry · Not to scale</span><button id="diagram-toggle" aria-pressed="false">${icon('box')} Wiring diagram</button><button id="flow-toggle" aria-pressed="false">${icon('bolt')} Current flow</button></div>
         </section>
         <section class="lesson-card" aria-label="Lesson details">
@@ -96,7 +97,7 @@ document.querySelector('#app').innerHTML = `
         </section>
       </div>
       <div class="bottom-layout">
-        <section class="code-card" aria-label="Arduino example sketch"><div class="card-header"><div>${icon('code')}<h2>The sketch</h2><span class="file-tag">example.ino</span></div><div class="sketch-tools"><button id="expand-code" aria-label="Expand sketch">Expand</button><button id="download-code" aria-label="Download Arduino sketch">Save .ino</button><button id="copy-code" aria-label="Copy sketch">${icon('copy')} Copy</button></div></div><pre tabindex="0" aria-label="Example Arduino code"><code id="sketch"></code></pre><div class="code-footnote">Controls update this example. Upload it using the Arduino IDE and the listed wiring.</div></section>
+        <section class="code-card" aria-label="Arduino example sketch"><div class="card-header"><div>${icon('code')}<h2>The sketch</h2><span class="file-tag">example.ino</span></div><div class="sketch-tools"><button id="expand-code" aria-label="Expand sketch">Expand</button><button id="download-code" aria-label="Download Arduino sketch">Save .ino</button><button id="copy-code" aria-label="Copy sketch">${icon('copy')} Copy</button></div></div><pre tabindex="0" aria-label="Example Arduino code"><code id="sketch"></code></pre><div class="code-footnote">Controls update this example. Upload it using the Arduino IDE and the listed wiring.</div><div class="focus-run-slot"></div></section>
         <div class="right-bottom">
           <section class="monitor-card" aria-label="Live simulation monitor"><div class="card-header"><div><span class="monitor-dot"></span><h2>Live monitor</h2></div><span id="monitor-state">IDLE</span></div><div class="monitor-values" id="monitor-values"></div><p id="monitor-log" role="status">Ready when you are. Start the experiment above.</p><details class="serial-history"><summary>Serial history <span id="trace-count">0 samples</span></summary><ol id="serial-trace" aria-label="Recent simulation samples"></ol><button id="clear-trace">Clear history</button></details></section>
           <section class="challenge-card" aria-label="Knowledge check"><span class="eyebrow">ONE QUICK CHECK</span><h2 id="question"></h2><div id="answers"></div><p id="quiz-feedback" role="status"></p><p id="completion-hint"></p><button id="complete" class="next-button" disabled aria-describedby="completion-hint">Complete lesson ${icon('arrow')}</button></section>
@@ -150,6 +151,29 @@ function renderDiagram() {
       if (['Enter', ' '].includes(event.key)) { event.preventDefault(); selectPart(connection.dataset.part); }
     });
   });
+  updateDiagramSignals(simulate(lesson.id, state, performance.now() - started));
+}
+function updateDiagramSignals(output) {
+  const signals = connectionSignals(lesson.id, output, state);
+  $('#schematic-drawing').querySelectorAll('[data-signal]').forEach(label => {
+    const value = signals[Number(label.dataset.signal)];
+    if (label.textContent !== value) label.textContent = value;
+  });
+}
+function applyWorkbenchLayout() {
+  const focused = focusRequested && innerWidth >= 1100;
+  document.querySelector('.workspace').classList.toggle('focus-layout', focused);
+  $('#focus-toggle').setAttribute('aria-pressed', String(focused));
+  $('#focus-toggle').textContent = focused ? 'Guided layout' : 'Focus workbench';
+  const sketch = $('.code-card');
+  const run = $('#run');
+  if (focused && sketch.parentElement !== $('.lab-layout')) {
+    $('.lab-layout').insertBefore(sketch, $('.lesson-card'));
+    $('.focus-run-slot').append(run);
+  } else if (!focused && sketch.parentElement !== $('.bottom-layout')) {
+    $('.bottom-layout').prepend(sketch);
+    $('.experiment').insertBefore(run, $('.simulation-note'));
+  }
 }
 const range = (id, label, min, max, value, unit, step = 1) => `<label class="range-label" for="${id}"><span>${label}</span><output id="${id}-value" for="${id}">${value}${unit}</output></label><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"><div class="range-extremes"><span>${min}${unit}</span><span>${max}${unit}</span></div>`;
 function renderControls() {
@@ -305,6 +329,7 @@ function updateMonitor(now, force = false) {
   }
   if ($('#monitor-log').textContent !== log) $('#monitor-log').textContent = log;
   if ($('#schematic-live').textContent !== log) $('#schematic-live').textContent = log;
+  updateDiagramSignals(output);
   $('#schematic').classList.toggle('powered', state.running);
   addTrace(now, log);
 }
@@ -445,8 +470,12 @@ $('#diagram-toggle').addEventListener('click', () => {
   $('#scene').hidden = diagramEnabled;
   $('#schematic').hidden = !diagramEnabled;
   $('.component-popover').classList.toggle('diagram-popover', diagramEnabled);
-  $('.gesture-hint').textContent = diagramEnabled ? 'Select a labeled connection to inspect it' : 'Drag to orbit · Focus view: WASD pan, Q/E rotate, +/− zoom';
+  $('.gesture-hint').textContent = diagramEnabled ? 'Select a labeled connection to inspect it' : 'Drag to pan · Right-drag or Q/E to rotate · Pinch/scroll to zoom · Focus view: WASD pan, 0 reset';
   $('.view-tools').hidden = diagramEnabled;
+});
+$('#focus-toggle').addEventListener('click', () => {
+  focusRequested = !focusRequested;
+  applyWorkbenchLayout();
 });
 $('#clear-trace').addEventListener('click', clearTrace);
 $('#sound-toggle').addEventListener('click', async () => {
@@ -498,6 +527,7 @@ try {
 }
 window.addEventListener('hashchange', navigate);
 window.addEventListener('resize', () => {
+  applyWorkbenchLayout();
   const compact = innerWidth <= 700;
   if (compact !== compactDiagram) {
     compactDiagram = compact;

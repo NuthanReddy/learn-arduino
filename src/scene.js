@@ -11,13 +11,17 @@ export function createLab(host, onSelect) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.domElement.setAttribute('aria-label', 'Interactive 3D circuit. Drag to orbit, pinch or scroll to zoom. Use the view buttons or component list for keyboard access.');
+  renderer.domElement.setAttribute('aria-label', 'Interactive 3D circuit. Drag to pan. Right-drag or use the rotate buttons to orbit. Pinch or scroll to zoom. Focus the view and use WASD to pan, Q/E to rotate, plus/minus to zoom, and 0 to reset.');
   renderer.domElement.setAttribute('role', 'img');
   renderer.domElement.tabIndex = 0;
   host.append(renderer.domElement);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.enablePan = true;
+  controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+  controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+  controls.touches.ONE = THREE.TOUCH.PAN;
+  controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
   controls.minDistance = 7;
   controls.maxDistance = 24;
   controls.maxPolarAngle = Math.PI * 0.47;
@@ -366,9 +370,20 @@ export function createLab(host, onSelect) {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let down;
-  renderer.domElement.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
+  let dragged = false;
+  renderer.domElement.addEventListener('pointerdown', e => {
+    if (!e.isPrimary) { dragged = true; return; }
+    down = { x: e.clientX, y: e.clientY, id: e.pointerId, button: e.button };
+    dragged = false;
+  });
+  renderer.domElement.addEventListener('pointermove', e => {
+    if (down && e.pointerId === down.id && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) dragged = true;
+  });
+  renderer.domElement.addEventListener('pointercancel', () => { down = undefined; dragged = false; });
   renderer.domElement.addEventListener('pointerup', e => {
-    if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+    const gesture = down;
+    down = undefined;
+    if (!gesture || dragged || gesture.id !== e.pointerId || gesture.button !== 0 || Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 6) return;
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.set((e.clientX - rect.left) / rect.width * 2 - 1, -(e.clientY - rect.top) / rect.height * 2 + 1);
     raycaster.setFromCamera(pointer, camera);

@@ -326,3 +326,103 @@ test('switching from a large diagram does not permanently enlarge the 3D workben
   await expect.poll(async () => (await page.locator('.scene-card').boundingBox()).height).toBeLessThan(initial.height * 1.15);
   await expect(page.locator('#scene canvas')).toBeVisible();
 });
+
+test('individual wiring connections follow input, PWM, parking and stopped states', async ({ page }) => {
+  await page.goto('#button');
+  await page.locator('#diagram-toggle').click();
+  await expect(page.locator('[data-signal="0"]')).toHaveText('Not sampled');
+  await page.locator('#run').click();
+  await expect(page.locator('[data-signal="0"]')).toContainText('HIGH');
+  await page.locator('#press-button').click();
+  await expect(page.locator('[data-signal="0"]')).toContainText('LOW · pressed');
+  await expect(page.locator('[data-signal="1"]')).toContainText('HIGH · LED on');
+  await page.locator('#run').click();
+  await expect(page.locator('[data-signal="0"]')).toHaveText('Not sampled');
+  await expect(page.locator('[data-signal="1"]')).toHaveText('LOW · LED off');
+  await page.locator('#lesson-nav a[href="#dimmer"]').click();
+  await page.locator('#run').click();
+  await expect(page.locator('[data-signal="1"]')).toHaveText('ADC 512/1023');
+  await expect(page.locator('[data-signal="2"]')).toHaveText('PWM 127/255');
+  await page.locator('#knob').fill('100');
+  await expect(page.locator('[data-signal="2"]')).toHaveText('PWM 255/255');
+  await page.locator('#run').click();
+  await expect(page.locator('[data-signal="2"]')).toHaveText('PWM off');
+  await page.locator('#lesson-nav a[href="#servo"]').click();
+  await page.locator('#run').click();
+  await page.locator('#angle').fill('180');
+  await expect(page.locator('[data-signal="0"]')).toContainText('Command 180° · shaft 180°');
+  await page.locator('#run').click();
+  await expect(page.locator('[data-signal="0"]')).toContainText('Signal off · last shaft 180°');
+  await page.locator('#lesson-nav a[href="#parking"]').click();
+  await page.locator('#run').click();
+  for (const [distance, expected] of [[15, 'R HIGH · A LOW · G LOW'], [40, 'R LOW · A HIGH · G LOW'], [100, 'R LOW · A LOW · G HIGH']]) {
+    await page.locator('#distance').fill(String(distance));
+    await expect(page.locator('[data-signal="1"]')).toContainText(`${distance.toFixed(1)} cm`);
+    await expect(page.locator('[data-signal="2"]')).toHaveText(expected);
+  }
+  await page.locator('#noEcho').check();
+  await expect(page.locator('[data-signal="1"]')).toHaveText('UNKNOWN · no echo');
+  await expect(page.locator('[data-signal="2"]')).toHaveText('R LOW · A LOW · G LOW');
+  await expect(page.locator('[data-signal="3"]')).toHaveText('All LEDs off');
+  await expect(page.locator('[data-signal="4"]')).toHaveText('Tone off');
+  await page.locator('#run').click();
+  await expect(page.locator('[data-signal="1"]')).toHaveText('Not sampled');
+  await expect(page.locator('[data-signal="3"]')).toHaveText('All LEDs off');
+});
+
+test('primary drag pans without selecting and desktop focus reuses live controls', async ({ page }, testInfo) => {
+  await page.goto('#dimmer');
+  await page.getByRole('tab', { name: 'Parts', exact: true }).click();
+  await page.locator('#detail-panel [data-part="knob"]').click();
+  await expect(page.locator('#component-name')).toHaveText('Potentiometer');
+  const canvas = page.locator('#scene canvas');
+  const bounds = await canvas.boundingBox();
+  const before = await canvas.screenshot();
+  const x = bounds.x + bounds.width * 0.65;
+  const y = bounds.y + bounds.height * 0.7;
+  if (testInfo.project.name === 'mobile') {
+    const session = await page.context().newCDPSession(page);
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 40, y: y - 25 }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await session.detach();
+  } else {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 70, y - 30, { steps: 8 });
+    await page.mouse.up();
+  }
+  await page.waitForTimeout(300);
+  const after = await canvas.screenshot();
+  expect(before.equals(after)).toBe(false);
+  await expect(page.locator('#component-name')).toHaveText('Potentiometer');
+  await page.locator('#reset-view').click();
+  if (testInfo.project.name === 'mobile') {
+    await expect(page.locator('#focus-toggle')).toBeHidden();
+    return;
+  }
+  await page.locator('#run').click();
+  await page.locator('#knob').fill('80');
+  await page.locator('#focus-toggle').click();
+  await expect(page.locator('.workspace')).toHaveClass(/focus-layout/);
+  await expect(page.locator('.lab-layout > .code-card')).toHaveCount(1);
+  await expect(page.locator('#run')).toHaveCount(1);
+  await expect(page.locator('.focus-run-slot #run')).toHaveText('Stop experiment');
+  const circuit = await page.locator('.scene-card').boundingBox();
+  const sketch = await page.locator('.code-card').boundingBox();
+  expect(Math.abs(circuit.y - sketch.y)).toBeLessThan(3);
+  expect(sketch.x).toBeGreaterThan(circuit.x + circuit.width - 1);
+  await expect(page.locator('#monitor-log')).toContainText('80% brightness');
+  await page.locator('#run').click();
+  await expect(page.locator('#monitor-state')).toHaveText('IDLE');
+  await page.locator('#next-lesson').click();
+  await expect(page.locator('#sketch')).toContainText('Servo');
+  await page.locator('#focus-toggle').click();
+  await expect(page.locator('.bottom-layout > .code-card')).toHaveCount(1);
+  await expect(page.locator('.experiment #run')).toHaveCount(1);
+  await page.locator('#focus-toggle').click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('.workspace')).not.toHaveClass(/focus-layout/);
+  await expect(page.locator('.bottom-layout > .code-card')).toHaveCount(1);
+  await expect(page.locator('.experiment #run')).toHaveCount(1);
+});

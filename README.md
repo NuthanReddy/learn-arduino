@@ -10,7 +10,11 @@ Each lesson has original wiring instructions, an interactive connection diagram,
 
 Existing six-lesson completion data is preserved. Completed lessons can be continued without retaking their checks, the last visited lesson resumes on return, and previous/next navigation allows exploration in any order. Progress stays in your browser; it is not account-synchronized.
 
-The 3D camera fits the current circuit on navigation, reset, and resize. Drag to orbit or focus the view and use **WASD** to pan, **Q/E** to rotate, **+/−** to zoom, and **0** to reset. Select a stage label or diagram connection to inspect a component. Browser sound is muted until explicitly enabled, stops with the experiment, and is silenced while the page is hidden. Reduced motion honors the operating system preference and can also be toggled.
+The 3D camera fits the current circuit on navigation, reset, and resize. Primary mouse/touch drag pans; right-drag or the rotate buttons orbit; pinch or scroll zooms. Focus the view and use **WASD** to pan, **Q/E** to rotate, **+/−** to zoom, and **0** to reset. Select a stage label, click a component without dragging, or select a diagram connection to inspect it. Each diagram connection shows its own sampled input, commanded output, or explicit inactive/unknown state from the same model as the monitor.
+
+On desktop widths of at least 1,100 pixels, **Focus workbench** puts the existing circuit and sketch side by side and moves the same run/stop button next to the sketch. Lesson navigation stays reachable. Returning to the guided layout or a narrow screen restores the original responsive order without restarting the experiment or duplicating state.
+
+Browser sound is muted until explicitly enabled, stops with the experiment, and is silenced while the page is hidden. Reduced motion honors the operating system preference and can also be toggled.
 
 ## Develop
 

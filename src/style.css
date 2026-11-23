@@ -237,3 +237,23 @@ footer{display:flex;justify-content:space-between;gap:20px;font-size:8px;color:#
 @media(max-width:1200px){.gesture-hint{max-width:150px;line-height:1.6}.scene-caption{height:auto;min-height:48px;flex-wrap:wrap;gap:4px}.scene-caption>span:nth-child(2){flex:1;max-width:145px}.scene-caption button{font-size:8px}.scene-label{font-size:8px;padding:4px 5px}}
 @media(max-width:700px){.sidebar #lesson-nav{min-height:0;overflow-y:hidden;flex:none}.sidebar .brand{margin-bottom:17px}.sidebar-bottom{padding-top:8px}.lab-settings{gap:4px}.lab-settings button{font-size:8px;padding:6px}.topbar .eyebrow,.topbar-divider{display:none}#breadcrumb{font-size:9px}.topbar>div:first-child{max-width:45%}.lesson-pagination{font-size:9px;margin-bottom:15px;gap:8px}.lesson-pagination span{font-size:8px}.lesson-pagination a{padding:7px}.scene-label{font-size:8px;padding:3px 5px}.scene-caption>span:nth-child(2){flex-basis:calc(100% - 25px);max-width:none}.scene-caption{padding:7px 12px}.scene-caption #diagram-toggle{margin-left:0}.scene-caption #flow-toggle{margin-left:auto}.scene-header{z-index:2}.sketch-tools button{font-size:9px;padding:5px}.file-tag{display:none}.card-header{padding:0 14px}.gesture-hint{max-width:140px;font-size:7px}.serial-history{font-size:10px}#schematic{padding:62px 10px 8px;min-height:300px}.lesson-pins li,.pin-reference,.specifications{font-size:11px}.diagram-connection text{font-size:12px}}
 @media(max-width:700px){#schematic svg{max-height:none}.diagram-connection text{font-size:13px}}
+.diagram-connection .connection-signal{font:600 10px monospace;fill:#167064}
+.focus-run-slot:empty{display:none}
+@media(min-width:1100px){
+  .focus-layout .lab-layout{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);align-items:stretch}
+  .focus-layout .scene-card{grid-column:1;grid-row:1;min-height:510px;max-height:610px}
+  .focus-layout .code-card{grid-column:2;grid-row:1;display:flex;flex-direction:column;max-height:610px}
+  .focus-layout .code-card pre{min-height:0;flex:1;max-height:440px;font-size:11px}
+  .focus-layout .lesson-card{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}
+  .focus-layout .lesson-card .tabs{grid-column:1/-1}
+  .focus-layout .experiment{border-top:0;border-left:1px solid var(--border);margin:20px 0;padding:0 24px}
+  .focus-layout .bottom-layout{display:block}
+  .focus-layout .right-bottom{grid-template-columns:1fr 1fr;align-items:start}
+  .focus-layout .focus-run-slot{padding:0 20px 18px}
+  .focus-layout .file-tag{display:none}
+  .focus-layout .sketch-tools button{font-size:9px;padding:5px}
+  .focus-layout #schematic{overflow:auto}
+  .focus-layout .component-popover{max-width:225px}
+  .focus-layout .scene-caption>span:nth-child(2){max-width:150px;line-height:1.6}
+}
+@media(max-width:1099px){#focus-toggle{display:none}}
