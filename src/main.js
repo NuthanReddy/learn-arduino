@@ -1,7 +1,9 @@
 import './style.css';
+import './home-automation.css';
 import { lessons, components, simulate } from './lessons.js';
 import { createLab } from './scene.js';
 import { connections, pinGroups, diagramMarkup, connectionSignals } from './circuits.js';
+import { mountHomeAutomation } from './home-automation.js';
 
 const icons = {
   chip: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4"/><path d="M10 10h4v4h-4z"/>',
@@ -60,11 +62,13 @@ let lastTraceTime = 0;
 let diagramEnabled = false;
 let compactDiagram = innerWidth <= 700;
 let focusRequested = false;
+let homeActive = false;
 
 document.querySelector('#app').innerHTML = `
   <a class="skip-link" href="#lesson-title">Skip to lesson</a>
   <aside class="sidebar">
     <a class="brand" href="#board" aria-label="Learn Arduino home"><span class="brand-mark">${icon('chip')}</span><span>learn<span class="brand-light">arduino</span><small>A LITTLE ELECTRONICS LAB</small></span></a>
+    <a class="collection-link" href="#home-automation" id="home-collection-link">${icon('box')}<span><strong>Home automation</strong><small>Explore the component library</small></span>${icon('arrow')}</a>
     <div class="path-label">YOUR LEARNING PATH <span>01 — ${lessons.length}</span></div>
     <nav aria-label="Lessons" id="lesson-nav"></nav>
     <div class="sidebar-bottom">
@@ -78,6 +82,8 @@ document.querySelector('#app').innerHTML = `
   <div class="workspace">
     <header class="topbar"><div><span class="eyebrow">LEARN BY MAKING</span><span class="topbar-divider">/</span><span id="breadcrumb">Your first circuit</span></div><div class="lab-settings"><button id="focus-toggle" aria-pressed="false">Focus workbench</button><button id="sound-toggle" aria-pressed="false">Sound off</button><button id="motion-toggle" aria-pressed="${reducedMotion}">Reduced motion</button></div></header>
     <main>
+      <section id="home-automation-library" aria-labelledby="automation-title" hidden></section>
+      <div id="learning-content">
       <div class="lesson-heading"><div><div class="lesson-meta"><span id="lesson-category"></span><span class="meta-dot">·</span><span id="lesson-duration"></span></div><h1 id="lesson-title" tabindex="-1"></h1><p id="lesson-subtitle"></p></div><span class="lesson-counter" id="lesson-counter"></span></div>
       <nav class="lesson-pagination" aria-label="Lesson navigation"><a id="previous-lesson">Previous lesson</a><span id="lesson-position"></span><a id="next-lesson">Next lesson</a></nav>
       <div class="lab-layout">
@@ -103,6 +109,7 @@ document.querySelector('#app').innerHTML = `
           <section class="challenge-card" aria-label="Knowledge check"><span class="eyebrow">ONE QUICK CHECK</span><h2 id="question"></h2><div id="answers"></div><p id="quiz-feedback" role="status"></p><p id="completion-hint"></p><button id="complete" class="next-button" disabled aria-describedby="completion-hint">Complete lesson ${icon('arrow')}</button></section>
         </div>
       </div>
+      </div>
       <footer><span>Made for curious minds, one circuit at a time.</span><span>Independent learning project · Not affiliated with Arduino</span></footer>
     </main>
     <div id="toast" role="status"></div>
@@ -110,14 +117,18 @@ document.querySelector('#app').innerHTML = `
   </div>`;
 
 const $ = selector => document.querySelector(selector);
+const homeAutomation = mountHomeAutomation($('#home-automation-library'));
 function renderNavigation() {
-  $('#lesson-nav').innerHTML = lessons.map((item, index) => `<a href="#${item.id}" class="lesson-link ${item.id === lesson.id ? 'active' : ''}" ${item.id === lesson.id ? 'aria-current="step"' : ''}><span class="lesson-number ${completed.has(item.id) ? 'done' : ''}">${completed.has(item.id) ? icon('check') : String(index + 1).padStart(2, '0')}</span><span><strong>${item.title}</strong><small>${item.category.toLowerCase()} · ${item.duration}</small></span>${item.id === lesson.id ? '<span class="active-dot"></span>' : ''}</a>`).join('');
+  $('#lesson-nav').innerHTML = lessons.map((item, index) => {
+    const active = !homeActive && item.id === lesson.id;
+    return `<a href="#${item.id}" class="lesson-link ${active ? 'active' : ''}" ${active ? 'aria-current="step"' : ''}><span class="lesson-number ${completed.has(item.id) ? 'done' : ''}">${completed.has(item.id) ? icon('check') : String(index + 1).padStart(2, '0')}</span><span><strong>${item.title}</strong><small>${item.category.toLowerCase()} · ${item.duration}</small></span>${active ? '<span class="active-dot"></span>' : ''}</a>`;
+  }).join('');
   $('#progress-count').textContent = `${completed.size} / ${lessons.length}`;
   $('#progress').value = completed.size;
   $('#progress-note').textContent = !storageAvailable ? 'Progress is kept for this visit only.' : completed.size === lessons.length ? 'Every lesson complete. Keep making!' : 'Small steps. Real possibilities.';
   const nav = $('#lesson-nav');
   const active = nav.querySelector('.active');
-  if (nav.scrollWidth > nav.clientWidth) {
+  if (active && nav.scrollWidth > nav.clientWidth) {
     nav.scrollLeft = active.offsetLeft - nav.offsetLeft;
   }
 }
@@ -335,6 +346,22 @@ function updateMonitor(now, force = false) {
 }
 function navigate() {
   const id = location.hash.slice(1) || lastLesson;
+  const [collection, item] = id.split('/');
+  homeActive = collection === 'home-automation';
+  $('#home-automation-library').hidden = !homeActive;
+  $('#learning-content').hidden = homeActive;
+  $('#focus-toggle').hidden = homeActive;
+  if (homeActive) {
+    setRunning(false);
+    $('#breadcrumb').textContent = 'Home automation library';
+    $('#home-collection-link').setAttribute('aria-current', 'page');
+    renderNavigation();
+    homeAutomation.show(item);
+    if (!item) $('#automation-title').focus();
+    return;
+  }
+  homeAutomation.stop();
+  $('#home-collection-link').removeAttribute('aria-current');
   lesson = lessons.find(item => item.id === id) || lessons[0];
   if (location.hash.slice(1) !== lesson.id) history.replaceState(null, '', `#${lesson.id}`);
   lastLesson = lesson.id;
@@ -386,7 +413,7 @@ function toast(message) {
 $('#run').addEventListener('click', () => setRunning(!state.running));
 $('.skip-link').addEventListener('click', event => {
   event.preventDefault();
-  $('#lesson-title').focus();
+  $(homeActive ? '#automation-title' : '#lesson-title').focus();
 });
 $('#complete').addEventListener('click', () => {
   if (!completed.has(lesson.id) && !(tried && quizPassed)) return;
@@ -547,7 +574,7 @@ function tick(now) {
     const difference = state.steps - state.stepPosition;
     state.stepPosition += Math.sign(difference) * Math.min(Math.abs(difference), delta * 1024);
   }
-  updateMonitor(now);
+  if (!homeActive) updateMonitor(now);
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);

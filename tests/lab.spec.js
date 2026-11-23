@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { lessons, simulate } from '../src/lessons.js';
+import { homeItems, automationOutput } from '../src/home-automation.js';
 
 test('simulation handles blink timing, pull-up input, PWM endpoints and light thresholds', () => {
   const state = { running: true, interval: 500, pressed: false, knob: 0, light: 0, threshold: 400, angle: 180, servoPosition: 180 };
@@ -425,4 +426,103 @@ test('primary drag pans without selecting and desktop focus reuses live controls
   await expect(page.locator('.workspace')).not.toHaveClass(/focus-layout/);
   await expect(page.locator('.bottom-layout > .code-card')).toHaveCount(1);
   await expect(page.locator('.experiment #run')).toHaveCount(1);
+});
+
+test('home automation model respects active-low contacts, quantized temperature and stop', () => {
+  const state = { running: true, motion: false, open: false, wet: false, temperature: 22, threshold: 28 };
+  expect(automationOutput('motion', state)).toMatchObject({ input: 'D2 LOW', output: 'D9 LOW', on: false });
+  expect(automationOutput('motion', { ...state, motion: true })).toMatchObject({ input: 'D2 HIGH', output: 'D9 HIGH', on: true });
+  expect(automationOutput('contact', state)).toMatchObject({ input: 'D2 LOW', on: false });
+  expect(automationOutput('contact', { ...state, open: true })).toMatchObject({ input: 'D2 HIGH', on: true });
+  expect(automationOutput('leak', { ...state, wet: true }).on).toBe(true);
+  expect(automationOutput('fan', state).on).toBe(false);
+  expect(automationOutput('fan', { ...state, temperature: 35 }).on).toBe(true);
+  const quantized = automationOutput('temperature', { ...state, temperature: 25, threshold: 25 });
+  expect(quantized.celsius).toBeLessThan(25);
+  expect(quantized.on).toBe(false);
+  for (const { id } of homeItems) {
+    expect(automationOutput(id, { ...state, running: false, motion: true, open: true, wet: true, temperature: 50 })).toMatchObject({ input: 'Not sampled', output: 'D9 LOW', on: false });
+  }
+});
+
+test('home automation is discoverable, motion/light and temperature/fan respond without changing progress', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('#blink');
+  await page.evaluate(() => localStorage.setItem('learn-lab-progress', JSON.stringify(['board', 'blink'])));
+  await page.reload();
+  await page.locator('#run').click();
+  await page.locator('#home-collection-link').click();
+  await expect(page).toHaveURL(/#home-automation$/);
+  await expect(page.locator('#home-automation-library')).toBeVisible();
+  await expect(page.locator('#learning-content')).toBeHidden();
+  await expect(page.locator('#home-collection-link')).toHaveAttribute('aria-current', 'page');
+  expect(await page.evaluate(() => localStorage.getItem('learn-lab-last-lesson'))).toBe('blink');
+  await expect(page.locator('#lesson-nav .active-dot')).toHaveCount(0);
+  await expect(page.locator('#monitor-state')).toHaveText('IDLE');
+  await expect(page.locator('.automation-catalog>a')).toHaveCount(6);
+  await page.locator('[data-home-item="motion"]').click();
+  await page.locator('#automation-motion').check();
+  await expect(page.locator('#automation-input')).toHaveText('Not sampled');
+  await expect(page.locator('#automation-output')).toContainText('D9 LOW');
+  await page.locator('#automation-run').click();
+  await expect(page.locator('#automation-feedback')).toContainText('Motion detected → low-voltage light on');
+  await page.locator('#automation-motion').uncheck();
+  await expect(page.locator('#automation-output')).toContainText('D9 LOW');
+  await page.locator('#automation-motion').check();
+  await page.locator('#automation-run').click();
+  await expect(page.locator('#automation-output')).toContainText('light off');
+  await page.locator('[data-home-item="fan"]').click();
+  await page.locator('#automation-run').click();
+  await page.locator('#automation-temperature').fill('35');
+  await expect(page.locator('#automation-output')).toContainText('D9 HIGH · fan on');
+  await page.locator('#motion-toggle').click();
+  await expect(page.locator('#automation-fan-blades')).toHaveCSS('animation-name', 'none');
+  await page.locator('#automation-temperature').fill('20');
+  await expect(page.locator('#automation-output')).toContainText('D9 LOW · fan off');
+  await page.locator('#automation-threshold').fill('15');
+  await expect(page.locator('#automation-output')).toContainText('D9 HIGH · fan on');
+  await expect(page.locator('#automation-sketch')).toContainText('turnOnAt = 15.0');
+  await page.locator('#automation-run').click();
+  await expect(page.locator('#automation-input')).toHaveText('Not sampled');
+  await expect(page.locator('#automation-output')).toContainText('D9 LOW · fan off');
+  await expect(page.locator('#progress-count')).toHaveText('2 / 16');
+  const guide = await page.request.get('home-automation-guide.md');
+  expect(guide.ok()).toBe(true);
+  expect(await guide.text()).toContain('#home-automation/contact');
+  await page.locator('#automation-related').click();
+  await expect(page).toHaveURL(/#motor$/);
+  await expect(page.locator('#learning-content')).toBeVisible();
+  await expect(page.locator('#home-automation-library')).toBeHidden();
+  await expect(page.locator('#progress-count')).toHaveText('2 / 16');
+  await expect(page.locator('#lesson-nav a')).toHaveCount(16);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('home automation direct links, contact/leak examples, reset and back navigation work', async ({ page }) => {
+  await page.goto('#home-automation/contact');
+  await expect(page.locator('#automation-demo-title')).toContainText('Door / window contact');
+  await page.locator('#automation-run').click();
+  await expect(page.locator('#automation-input')).toHaveText('D2 LOW');
+  await page.locator('#automation-open').check();
+  await expect(page.locator('#automation-input')).toHaveText('D2 HIGH');
+  await expect(page.locator('#automation-output')).toContainText('light on');
+  await page.locator('[data-home-item="leak"]').click();
+  await expect(page.locator('#automation-run-state')).toHaveText('STOPPED');
+  await page.locator('#automation-run').click();
+  await page.locator('#automation-wet').check();
+  await expect(page.locator('#automation-feedback')).toContainText('Water detected → warning light on');
+  await page.locator('#automation-reset').click();
+  await expect(page.locator('#automation-run-state')).toHaveText('STOPPED');
+  await expect(page.locator('#automation-wet')).not.toBeChecked();
+  await page.reload();
+  await expect(page.locator('#automation-demo-title')).toContainText('Water leak sensor');
+  await expect(page.locator('#automation-run-state')).toHaveText('STOPPED');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator('#lesson-nav a[href="#servo"]').click();
+  await expect(page.locator('#lesson-title')).toHaveText('A move in the right direction');
+  await page.goBack();
+  await expect(page.locator('#home-automation-library')).toBeVisible();
+  await expect(page.locator('#automation-demo-title')).toContainText('Water leak sensor');
 });

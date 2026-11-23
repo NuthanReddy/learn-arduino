@@ -16,6 +16,14 @@ On desktop widths of at least 1,100 pixels, **Focus workbench** puts the existin
 
 Browser sound is muted until explicitly enabled, stops with the experiment, and is silenced while the page is hidden. Reduced motion honors the operating system preference and can also be toggled.
 
+## Home automation library
+
+Open **Home automation** in the sidebar or visit the [collection directly](https://nuthanreddy.github.io/learn-arduino/#home-automation). Six entries cover PIR motion, magnetic door/window contacts, leak sensing, the existing TMP36, a low-voltage lamp/relay module, and a driven DC fan. Working motion-to-light, contact-to-indicator, leak-to-warning, and temperature-to-fan examples show sampled inputs, output commands, and original Arduino sketches.
+
+The collection reuses the existing temperature conversion and links back to input, LED, moisture, and motor lessons. It does not add required lessons or change saved progress. All examples are simulated and low-voltage DC only, with no mains wiring or real device access.
+
+The downloadable [component guide](public/home-automation-guide.md) lists the actual entries, public deep links, connection assumptions, and limitations. Vite publishes the same file at `/learn-arduino/home-automation-guide.md`.
+
 ## Develop
 
 Requires Node.js 20.19+ or 22.12+.

@@ -130,15 +130,20 @@ export const components = {
   traffic: { name: 'Three-zone indicator', short: 'Traffic lights', description: 'Red means at or inside the stop threshold; amber extends to the caution threshold; green is beyond it. Each LED has a separate resistor.' },
 };
 
+export function temperatureMeasurement(temperature) {
+  const temperatureVoltage = 0.5 + temperature * 0.01;
+  const temperatureReading = Math.round(temperatureVoltage * 1023 / 5);
+  const celsius = (temperatureReading * 5 / 1023 - 0.5) * 100;
+  return { temperatureVoltage, temperatureReading, celsius };
+}
+
 export function simulate(lesson, state, elapsed) {
   const analog = Math.round(state.knob * 1023 / 100);
   const light = Math.round(state.light * 1023 / 100);
   const forceReading = Math.round(state.force * 1023 / 100);
   const soilReading = Math.round(800 - state.moisture * 5);
   const moisture = Math.trunc((800 - soilReading) * 100 / 500);
-  const temperatureVoltage = 0.5 + state.temperature * 0.01;
-  const temperatureReading = Math.round(temperatureVoltage * 1023 / 5);
-  const celsius = (temperatureReading * 5 / 1023 - 0.5) * 100;
+  const { temperatureVoltage, temperatureReading, celsius } = temperatureMeasurement(state.temperature);
   const echo = Math.round(state.distance * 2 / 0.0343);
   const measuredDistance = Number((echo * 0.0343 / 2).toFixed(1));
   const zone = measuredDistance <= state.stopDistance ? 'STOP' : measuredDistance <= state.cautionDistance ? 'CAUTION' : 'CLEAR';
