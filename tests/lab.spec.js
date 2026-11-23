@@ -315,3 +315,14 @@ test('keyboard camera, retained serial trace, sound mute and sketch export work'
   await page.locator('#download-code').click();
   expect((await download).suggestedFilename()).toBe('piano.ino');
 });
+
+test('switching from a large diagram does not permanently enlarge the 3D workbench', async ({ page }) => {
+  await page.goto('#board');
+  const initial = await page.locator('.scene-card').boundingBox();
+  await page.locator('#lesson-nav a[href="#parking"]').click();
+  await page.locator('#diagram-toggle').click();
+  await page.locator('#diagram-toggle').click();
+  await page.locator('#lesson-nav a[href="#board"]').click();
+  await expect.poll(async () => (await page.locator('.scene-card').boundingBox()).height).toBeLessThan(initial.height * 1.15);
+  await expect(page.locator('#scene canvas')).toBeVisible();
+});

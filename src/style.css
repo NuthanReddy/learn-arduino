@@ -70,7 +70,7 @@ h1{font-family:'Manrope',sans-serif;letter-spacing:-1.25px;font-weight:750;font-
 .power-status.on{color:var(--green)}
 .power-status.on>span{background:#24a888;box-shadow:0 0 0 3px #1caa8b15}
 #scene{height:440px;flex:1;min-height:400px;width:100%;position:relative}
-#scene canvas{display:block;max-width:100%;touch-action:none}
+#scene canvas{display:block;max-width:100%;touch-action:none;position:absolute;inset:0}
 .component-popover{position:absolute;left:22px;bottom:100px;max-width:268px;background:#fcfff9df;backdrop-filter:blur(10px);border:1px solid #dde7d7;border-radius:12px;padding:14px 16px;pointer-events:none}
 .component-popover .eyebrow{font-size:7px;letter-spacing:1.2px}
 .component-popover strong{display:block;font-family:Manrope,sans-serif;font-size:12px;margin:5px 0}
