@@ -1,3 +1,5 @@
+import { moreLessons } from './more-lessons.js';
+
 export const lessons = [
   {
     id: 'board',
@@ -101,6 +103,7 @@ export const lessons = [
     explanation: 'You got it. 200 is below 400, so the sketch turns the night light on.',
     code: ({ threshold }) => `void setup() {\n  pinMode(9, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int light = analogRead(A0);\n  bool isDark = light < ${threshold};\n  digitalWrite(9, isDark ? HIGH : LOW);\n  Serial.println(light);\n  delay(100);\n}`,
   },
+  ...moreLessons,
 ];
 
 export const components = {
@@ -114,18 +117,52 @@ export const components = {
   knob: { name: 'Potentiometer', short: '10 kΩ knob', description: 'A three-terminal adjustable resistor. Its middle wiper picks a voltage between the two outer connections.' },
   servo: { name: 'Hobby servo', short: 'Servo motor', description: 'A geared motor with position feedback. The signal selects an angle; a separate, suitably rated supply handles motor current.' },
   sensor: { name: 'Photoresistor', short: 'Light sensor', description: 'Its resistance rises as light decreases. A 10 kΩ resistor completes the voltage divider that lets A0 measure the change.' },
+  rgb: { name: 'Common-cathode RGB LED', short: 'RGB LED', description: 'Three LEDs share a ground connection. Red, green, and blue each need their own resistor and PWM pin.' },
+  ultrasonic: { name: 'Ultrasonic ranging sensor', short: 'HC-SR04 sensor', description: 'TRIG starts a sound burst and ECHO reports round-trip travel time. This model assumes 343 m/s sound speed.' },
+  buzzer: { name: 'Passive piezo', short: 'Piezo buzzer', description: 'An alternating signal makes the piezo vibrate. A passive piezo needs tone(); an active buzzer contains its own oscillator.' },
+  piano: { name: 'Four-note keyboard', short: 'Piano keys', description: 'Four active-low buttons choose C4, D4, E4, and F4. The sketch gives the first pressed key priority.' },
+  motor: { name: 'DC motor', short: 'DC motor', description: 'The virtual wheel shows relative PWM drive, not calibrated RPM. Real speed depends on load, voltage, motor, and driver.' },
+  driver: { name: 'Motor driver and supply', short: 'Rated driver', description: 'A driver switches an external supply. DC motors need flyback protection; the geared stepper uses a ULN2003 coil driver. All signal grounds must be joined.' },
+  temperature: { name: 'TMP36 temperature sensor', short: 'TMP36', description: 'The ideal output is 0.5 V + temperature × 0.01 V/°C. ADC quantization and reference accuracy affect the estimate.' },
+  stepper: { name: 'Geared stepper motor', short: '28BYJ-48 + driver', description: 'This model assumes 2,048 full steps per nominal revolution. Real gear ratios vary; commanded steps are not measured position.' },
+  soil: { name: 'Capacitive moisture sensor', short: 'Moisture probe', description: 'The example uses dry ADC 800 and wet ADC 300. Calibrate your sensor in its actual soil before relying on percentages.' },
+  force: { name: 'Force-sensitive resistor', short: 'FSR pressure pad', description: 'A voltage divider translates resistance into an ADC reading. The simulated press percentage is not a measurement in newtons.' },
+  traffic: { name: 'Three-zone indicator', short: 'Traffic lights', description: 'Red means at or inside the stop threshold; amber extends to the caution threshold; green is beyond it. Each LED has a separate resistor.' },
 };
 
 export function simulate(lesson, state, elapsed) {
   const analog = Math.round(state.knob * 1023 / 100);
   const light = Math.round(state.light * 1023 / 100);
+  const forceReading = Math.round(state.force * 1023 / 100);
+  const soilReading = Math.round(800 - state.moisture * 5);
+  const moisture = Math.trunc((800 - soilReading) * 100 / 500);
+  const temperatureVoltage = 0.5 + state.temperature * 0.01;
+  const temperatureReading = Math.round(temperatureVoltage * 1023 / 5);
+  const celsius = (temperatureReading * 5 / 1023 - 0.5) * 100;
+  const echo = Math.round(state.distance * 2 / 0.0343);
+  const measuredDistance = Number((echo * 0.0343 / 2).toFixed(1));
+  const zone = measuredDistance <= state.stopDistance ? 'STOP' : measuredDistance <= state.cautionDistance ? 'CAUTION' : 'CLEAR';
+  const note = [262, 294, 330, 349][state.note] || 0;
+  let frequency = 0;
   let led = 0;
   if (state.running) {
     if (lesson === 'board') led = 1;
     if (lesson === 'blink') led = Math.floor(elapsed / state.interval) % 2 === 0 ? 1 : 0;
     if (lesson === 'button') led = Number(state.pressed);
-    if (lesson === 'dimmer') led = Math.round(analog * 255 / 1023) / 255;
+    if (lesson === 'dimmer') led = Math.trunc(analog * 255 / 1023) / 255;
     if (lesson === 'light') led = Number(light < state.threshold);
+    if (lesson === 'rgb') led = Math.max(state.red, state.green, state.blue) / 255;
+    if (lesson === 'soil') led = Number(moisture < state.moistureThreshold);
+    if (lesson === 'force') led = Math.trunc(forceReading * 255 / 1023) / 255;
+    if (lesson === 'buzzer' && Math.floor(elapsed / 500) % 2 === 0) frequency = state.frequency;
+    if (lesson === 'piano') frequency = note;
+    if (lesson === 'parking' && !state.noEcho && zone === 'STOP') frequency = 880;
   }
-  return { led, analog, pwm: Math.round(led * 255), light, digital: state.pressed ? 'LOW' : 'HIGH', angle: state.running ? state.angle : 90 };
+  return {
+    led, analog, pwm: Math.round(led * 255), light, digital: state.pressed ? 'LOW' : 'HIGH', angle: state.servoPosition ?? 90,
+    frequency, echo, measuredDistance, zone, temperatureReading, celsius, temperatureVoltage, soilReading, moisture, forceReading,
+    motorPwm: state.running ? Math.trunc(state.motorSpeed * 255 / 100) : 0,
+    steps: state.stepPosition ?? 0,
+    rgb: state.running ? [state.red, state.green, state.blue] : [0, 0, 0],
+  };
 }

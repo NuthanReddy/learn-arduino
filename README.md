@@ -1,10 +1,16 @@
 # Learn Arduino
 
-An original, browser-based electronics learning lab with a real WebGL 3D board and six hands-on experiments.
+An original, browser-based electronics learning lab with a real WebGL 3D board and sixteen hands-on experiments.
 
 **Live site:** https://nuthanreddy.github.io/learn-arduino/
 
-Explore board components, blink an LED, read a button, adjust PWM brightness, position a servo, and build a sensor-driven night light. Each lesson includes written wiring instructions, a responsive live monitor, an Arduino example sketch, and a knowledge check. Progress is saved locally in your browser.
+Explore board components, blink an LED, read a button, adjust PWM brightness, position a servo, and build a sensor-driven night light. Continue with RGB mixing, ultrasonic ranging, a piezo buzzer, a four-key piano, a driven DC motor, temperature sensing, a geared stepper, soil moisture, force-sensitive input, and a three-zone parking guide.
+
+Each lesson has original wiring instructions, an interactive connection diagram, an Arduino sketch, adjustable inputs, visible 3D outputs, and a knowledge check. The live monitor retains its last sixteen samples when stopped. The pinout and specifications tabs explain the Uno R3's connections and limitations. Copy, expand, or download sketches as `.ino` files.
+
+Existing six-lesson completion data is preserved. Completed lessons can be continued without retaking their checks, the last visited lesson resumes on return, and previous/next navigation allows exploration in any order. Progress stays in your browser; it is not account-synchronized.
+
+The 3D camera fits the current circuit on navigation, reset, and resize. Drag to orbit or focus the view and use **WASD** to pan, **Q/E** to rotate, **+/−** to zoom, and **0** to reset. Select a stage label or diagram connection to inspect a component. Browser sound is muted until explicitly enabled, stops with the experiment, and is silenced while the page is hidden. Reduced motion honors the operating system preference and can also be toggled.
 
 ## Develop
 
@@ -24,7 +30,7 @@ npm run build
 npm test
 ```
 
-Browser tests use an installed Microsoft Edge and cover desktop/mobile layouts, 3D controls, all six experiments, progress persistence, keyboard tabs, and the WebGL-unavailable fallback. Tests are local; the deployment workflow builds and publishes the site.
+Browser tests use an installed Microsoft Edge and cover desktop/mobile layouts, all sixteen lessons, legacy progress, PWM integer mapping, held servo position, capstone thresholds and missing echoes, interactive diagrams, keyboard camera controls, trace retention, deliberate audio activation/muting, sketch export, and the WebGL-unavailable fallback. Tests are local; the deployment workflow builds and publishes the site.
 
 ## Publish
 
@@ -32,7 +38,9 @@ GitHub Pages must use **GitHub Actions** as its source. Push to `main` to run `.
 
 ## Scope and safety
 
-This is an educational **guided simulation**, not an Arduino compiler or electrical circuit solver. Controls drive the illustrated behavior and update the example sketch; they do not upload to real hardware. The original procedural geometry is simplified and not to scale. Follow the written wiring instructions rather than treating the model as a construction diagram. Disconnect power while wiring; LEDs need current-limiting resistors and motors need suitable power supplies.
+This is an educational **guided simulation**, not an Arduino compiler or electrical circuit solver. Controls drive the illustrated behavior and update the example sketch; they do not upload to real hardware. The original procedural geometry is simplified and not to scale. Follow the written wiring instructions and component datasheets rather than treating the model as a construction diagram. Disconnect power while wiring; LEDs need current-limiting resistors and motors need suitably rated drivers and power supplies.
+
+Motor speed is relative drive, not calibrated RPM. Stepper position is a commanded open-loop estimate. Soil and force inputs are illustrative, not calibrated physical measurements. The parking lesson is not a vehicle safety system. The lab is English-only and does not claim localization parity with another website.
 
 Code, geometry, design, and lesson prose were created independently. The project is inspired by the general idea of interactive electronics education, not a reproduction of the reference website's source or assets. Arduino is a trademark of its respective owner; this project is not affiliated with or endorsed by Arduino.
 
